@@ -1,0 +1,120 @@
+import { google } from "@ai-sdk/google"
+import { generateText } from "ai"
+import TelegramBot from "node-telegram-bot-api"
+import { generateAnswerInstruction, processInstruction } from "./instruction"
+import axios from "axios"
+
+const normalizeOdds = (value: any): number => {
+  if (value == null) return 0
+  const num = typeof value === "string" ? parseFloat(value) : value
+  if (isNaN(num)) return 0
+  if (num > 1) return Math.min(num / 100, 1)
+  return Math.max(Math.min(num, 1), 0)
+}
+
+class Bot {
+  private bot: TelegramBot
+
+  constructor(token: string) {
+    this.bot = new TelegramBot(token)
+    this.bot.on("message", this.onMessage)
+  }
+
+  askAi = async (instruction: string): Promise<string> => {
+    const { text } = await generateText({
+      model: google("gemini-2.0-flash-lite"),
+      prompt: instruction,
+    });
+
+    return text
+  }
+
+  queryPolymarket = async (keywords: string): Promise<any> => {
+    try {
+      const { data } = await axios.get(
+        `https://gamma-api.polymarket.com/public-search?q=${encodeURIComponent(keywords)}&events_status=active`
+      )
+
+      const events = data?.events || []
+      const results: {
+        question: string
+        description: string
+        yesProbability: number
+        noProbability: number
+        liquidity: number
+      }[] = []
+
+      for (const event of events) {
+        const markets = event?.markets || []
+        for (const market of markets) {
+          let outcomePrices: number[] = []
+          try {
+            if (typeof market.outcomePrices === "string") {
+              outcomePrices = JSON.parse(market.outcomePrices).map((v: string) =>
+                parseFloat(v)
+              )
+            } else if (Array.isArray(market.outcomePrices)) {
+              outcomePrices = market.outcomePrices.map((v: any) => parseFloat(v))
+            }
+          } catch (e) {
+            outcomePrices = []
+          }
+
+          const yesPriceRaw = outcomePrices[0] ?? null
+          const noPriceRaw = outcomePrices[1] ?? null
+
+          const yesProbability = normalizeOdds(yesPriceRaw)
+          const noProbability = normalizeOdds(noPriceRaw)
+
+          results.push({
+            question: market.question,
+            description: market.description || "",
+            yesProbability,
+            noProbability,
+            liquidity: market.liquidity ?? 0,
+          })
+        }
+      }
+
+      results.sort((a, b) => b.liquidity - a.liquidity)
+
+      return results.slice(0, 10)
+    } catch (error) {
+      console.error("❌ Error fetching Polymarket data:", error)
+      return []
+    }
+  }
+
+  onMessage = async (msg: any) => {
+    const question = msg.text
+    const keywords = await this.askAi(processInstruction(question))
+    const odds = await this.queryPolymarket(keywords)
+    if (odds.length === 0) {
+      await this.bot.sendMessage(
+        msg.chat.id,
+        "Xin lỗi, tôi không tìm thấy dữ liệu phù hợp."
+      )
+      return
+    }
+    const answer = await this.askAi(
+      generateAnswerInstruction(question, odds || {})
+    )
+
+    await this.bot.sendMessage(msg.chat.id, answer)
+  }
+
+  start = async () => {
+    this.bot.startPolling()
+  }
+
+  test = async () => {
+  }
+}
+
+const main = async () => {
+  const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN || "")
+  await bot.start()
+  // await bot.test()
+}
+
+main()
