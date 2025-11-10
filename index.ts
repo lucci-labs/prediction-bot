@@ -86,24 +86,38 @@ class Bot {
   }
 
   onMessage = async (msg: any) => {
-    const question = msg.text
+    let question = msg.text?.trim()
+    if (!question) return
+
+    const chatType = msg.chat?.type // 'private', 'group', 'supergroup'
+    const botUsername = (await this.bot.getMe()).username // ví dụ: "LucciBot"
+
+    // 🔹 Nếu là group, chỉ phản hồi khi được mention
+    if (chatType !== "private") {
+      const isMentioned =
+        question.includes(`@${botUsername}`)
+
+      if (!isMentioned) return // ⛔ Bỏ qua tin nhắn không tag bot
+      question = question.replace(new RegExp(`@${botUsername}`, "gi"), "").trim()
+    }
+
+    await this.bot.sendMessage(msg.chat.id, "Đang xử lý câu hỏi... ⏳")
+
+    // 🔹 Tiếp tục xử lý bình thường
     const keywords = await this.askAi(processInstruction(question))
     const odds = await this.queryPolymarket(keywords)
+
     if (odds.length === 0) {
-      await this.bot.sendMessage(
-        msg.chat.id,
-        "Xin lỗi, tôi không tìm thấy dữ liệu phù hợp."
-      )
+      await this.bot.sendMessage(msg.chat.id, "Xin lỗi, tôi không tìm thấy dữ liệu phù hợp.")
       return
     }
-    const answer = await this.askAi(
-      generateAnswerInstruction(question, odds || {})
-    )
 
+    const answer = await this.askAi(generateAnswerInstruction(question, odds || {}))
     await this.bot.sendMessage(msg.chat.id, answer)
   }
 
   start = async () => {
+    console.log("🤖 Bot is starting...")
     this.bot.startPolling()
   }
 
