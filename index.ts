@@ -77,7 +77,7 @@ class Bot {
           })
         }
       }
-      return results.slice(0, 10) // Trả về tối đa 3 kết quả hàng đầu
+      return results.slice(0, 4) // Trả về tối đa 3 kết quả hàng đầu
     } catch (error) {
       console.error("❌ Error fetching Polymarket data:", error)
       return []
