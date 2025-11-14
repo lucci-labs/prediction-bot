@@ -66,6 +66,8 @@ class Bot {
           const yesProbability = normalizeOdds(yesPriceRaw)
           const noProbability = normalizeOdds(noPriceRaw)
 
+          if (yesProbability === 0 || noProbability === 0) continue
+
           results.push({
             question: market.question,
             description: market.description || "",
@@ -75,10 +77,7 @@ class Bot {
           })
         }
       }
-
-      results.sort((a, b) => b.liquidity - a.liquidity)
-
-      return results.slice(0, 10)
+      return results.slice(0, 10) // Trả về tối đa 3 kết quả hàng đầu
     } catch (error) {
       console.error("❌ Error fetching Polymarket data:", error)
       return []
@@ -101,19 +100,20 @@ class Bot {
       question = question.replace(new RegExp(`@${botUsername}`, "gi"), "").trim()
     }
 
-    await this.bot.sendMessage(msg.chat.id, "Đang xử lý câu hỏi... ⏳")
+    const odds = await this.queryPolymarket(question)
 
-    // 🔹 Tiếp tục xử lý bình thường
-    const keywords = await this.askAi(processInstruction(question))
-    const odds = await this.queryPolymarket(keywords)
+    const answers = odds.map((item: any) => {
+      return `❓ Question: ${item.question}
+✅ Yes Probability: ${(item.yesProbability * 100).toFixed(2)}%
+❌ No Probability: ${(item.noProbability * 100).toFixed(2)}%`
+    }).join("\n\n")
 
-    if (odds.length === 0) {
-      await this.bot.sendMessage(msg.chat.id, "Xin lỗi, tôi không tìm thấy dữ liệu phù hợp.")
+    if (answers.length === 0) {
+      await this.bot.sendMessage(msg.chat.id, "❌ No relevant markets found on Polymarket.")
       return
     }
 
-    const answer = await this.askAi(generateAnswerInstruction(question, odds || {}))
-    await this.bot.sendMessage(msg.chat.id, answer)
+    await this.bot.sendMessage(msg.chat.id, answers)
   }
 
   start = async () => {
@@ -122,6 +122,10 @@ class Bot {
   }
 
   test = async () => {
+    const keywords = "elon must tweet 220-239"
+
+    const odds = await this.queryPolymarket(keywords)
+    console.log("📊 Polymarket Odds:", odds)
   }
 }
 
