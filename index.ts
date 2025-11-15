@@ -17,7 +17,8 @@ class Bot {
 
   constructor(token: string) {
     this.bot = new TelegramBot(token)
-    this.bot.on("message", this.onMessage)
+    // this.bot.on("message", this.onMessage)
+    this.bot.onText(/\/stat/, this.onStat)
   }
 
   askAi = async (instruction: string): Promise<string> => {
@@ -27,6 +28,28 @@ class Bot {
     });
 
     return text
+  }
+
+  onStat = async (msg: any) => {
+    const message = await this.queryXTracker()
+    await this.bot.sendMessage(msg.chat.id, message)
+  }
+
+  queryXTracker = async () => {
+    const { data } = await axios.get('https://www.xtracker.io/api/users?stats=true&platform=X');
+    const message = `
+1. From ${data[0].startDate.slice(0, 10)} to ${data[0].endDate.slice(0, 10)}:
+- Total tweets: ${data[0].tweetData.totalBetweenStartAndEnd}
+- Daily average tweets: ${data[0].tweetData.dailyAverage.toFixed(2)}
+- Estimate: ${data[0].tweetData.pace.toFixed(2)}
+
+2. From ${data[1].startDate.slice(0, 10)} to ${data[1].endDate.slice(0, 10)}:
+- Total tweets: ${data[1].tweetData.totalBetweenStartAndEnd}
+- Daily average tweets: ${data[1].tweetData.dailyAverage.toFixed(2)}
+- Estimate: ${data[1].tweetData.pace.toFixed(2)}
+`
+
+    return message
   }
 
   queryPolymarket = async (keywords: string): Promise<any> => {
@@ -122,10 +145,7 @@ class Bot {
   }
 
   test = async () => {
-    const keywords = "elon must tweet 220-239"
-
-    const odds = await this.queryPolymarket(keywords)
-    console.log("📊 Polymarket Odds:", odds)
+    await this.queryXTracker()
   }
 }
 
