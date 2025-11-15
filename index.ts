@@ -17,7 +17,7 @@ class Bot {
 
   constructor(token: string) {
     this.bot = new TelegramBot(token)
-    // this.bot.on("message", this.onMessage)
+    this.bot.on("message", this.onMessage)
     this.bot.onText(/\/stat/, this.onStat)
   }
 
@@ -32,21 +32,25 @@ class Bot {
 
   onStat = async (msg: any) => {
     const message = await this.queryXTracker()
-    await this.bot.sendMessage(msg.chat.id, message)
+    await this.bot.sendMessage(msg.chat.id, message, {
+      parse_mode: "Markdown",
+    })
   }
 
   queryXTracker = async () => {
     const { data } = await axios.get('https://www.xtracker.io/api/users?stats=true&platform=X');
     const message = `
-1. From ${data[0].startDate.slice(0, 10)} to ${data[0].endDate.slice(0, 10)}:
-- Total tweets: ${data[0].tweetData.totalBetweenStartAndEnd}
-- Daily average tweets: ${data[0].tweetData.dailyAverage.toFixed(2)}
-- Estimate: ${data[0].tweetData.pace.toFixed(2)}
+📊 *Tweet Statistics*
 
-2. From ${data[1].startDate.slice(0, 10)} to ${data[1].endDate.slice(0, 10)}:
-- Total tweets: ${data[1].tweetData.totalBetweenStartAndEnd}
-- Daily average tweets: ${data[1].tweetData.dailyAverage.toFixed(2)}
-- Estimate: ${data[1].tweetData.pace.toFixed(2)}
+1️⃣ **${data[0].startDate.slice(0, 10)} → ${data[0].endDate.slice(0, 10)}**
+• Total tweets: ${data[0].tweetData.totalBetweenStartAndEnd}
+• Daily average: ${data[0].tweetData.dailyAverage.toFixed(2)}
+• Estimate: ${data[0].tweetData.pace.toFixed(2)}
+
+2️⃣ **${data[1].startDate.slice(0, 10)} → ${data[1].endDate.slice(0, 10)}**
+• Total tweets: ${data[1].tweetData.totalBetweenStartAndEnd}
+• Daily average: ${data[1].tweetData.dailyAverage.toFixed(2)}
+• Estimate: ${data[1].tweetData.pace.toFixed(2)}
 `
 
     return message
@@ -123,6 +127,34 @@ class Bot {
       question = question.replace(new RegExp(`@${botUsername}`, "gi"), "").trim()
     }
 
+    const { data } = await axios.get('https://www.xtracker.io/api/users?stats=true&platform=X');
+    for (const betData of data) {
+      if (betData.startDate.includes(question)) {
+        console.log("Found matching data for date:", betData)
+
+        const message = `
+📊 *Statistics Summary*
+From *${betData.startDate.slice(0, 10)}* → *${betData.endDate.slice(0, 10)}*
+
+• **Total tweets:** ${betData.tweetData.totalBetweenStartAndEnd}
+• **Daily average:** ${betData.tweetData.dailyAverage.toFixed(2)}
+• **Estimate:** ${betData.tweetData.pace.toFixed(2)}
+
+🗓 **Daily tweets breakdown:**
+${betData.tweetData.daily
+            .map((item: any) => `- ${item.start}: ${item.tweet_count}`)
+            .join("\n")}
+    `
+
+        await this.bot.sendMessage(msg.chat.id, message, {
+          parse_mode: "Markdown",
+        })
+
+        break
+      }
+    }
+
+    /*
     const odds = await this.queryPolymarket(question)
 
     const answers = odds.map((item: any) => {
@@ -137,6 +169,7 @@ class Bot {
     }
 
     await this.bot.sendMessage(msg.chat.id, answers)
+    */
   }
 
   start = async () => {
