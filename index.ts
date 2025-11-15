@@ -40,7 +40,7 @@ class Bot {
   queryXTracker = async () => {
     const { data } = await axios.get('https://www.xtracker.io/api/users?stats=true&platform=X');
     const message = `
-📊 *Tweet Statistics*
+📊 *Elon Tweet Statistics*
 
 1️⃣ **${data[0].startDate.slice(0, 10)} → ${data[0].endDate.slice(0, 10)}**
 • Total tweets: ${data[0].tweetData.totalBetweenStartAndEnd}
@@ -131,7 +131,7 @@ class Bot {
     for (const betData of data) {
       if (betData.startDate.includes(question)) {
         const message = `
-📊 *Statistics Summary*
+📊 *Elon Tweet Statistics Summary*
 From *${betData.startDate.slice(0, 10)}* → *${betData.endDate.slice(0, 10)}*
 
 • **Total tweets:** ${betData.tweetData.totalBetweenStartAndEnd}
