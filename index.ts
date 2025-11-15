@@ -130,8 +130,6 @@ class Bot {
     const { data } = await axios.get('https://www.xtracker.io/api/users?stats=true&platform=X');
     for (const betData of data) {
       if (betData.startDate.includes(question)) {
-        console.log("Found matching data for date:", betData)
-
         const message = `
 📊 *Statistics Summary*
 From *${betData.startDate.slice(0, 10)}* → *${betData.endDate.slice(0, 10)}*
